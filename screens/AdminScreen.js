@@ -1,3 +1,4 @@
+// ===================== IMPORTS =====================
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet, Button, Platform, TouchableOpacity, Modal, ActivityIndicator, ScrollView, RefreshControl
@@ -5,8 +6,9 @@ import {
 import { database } from '../firebaseConfig';
 import { ref, onValue } from 'firebase/database';
 
+// ===================== COMPONENTES AUXILIARES =====================
 const StatCard = ({ title, value, unit = '', icon }) => (
-  <View style={styles.statCard}>
+  <View style={styles.statCard} accessible accessibilityRole="summary" accessibilityLabel={`${title}: ${value} ${unit}`}> 
     <Text style={styles.statIcon}>{icon}</Text>
     <Text style={styles.statValue}>{value} <Text style={styles.statUnit}>{unit}</Text></Text>
     <Text style={styles.statTitle}>{title}</Text>
@@ -15,16 +17,16 @@ const StatCard = ({ title, value, unit = '', icon }) => (
 
 const BarChart = ({ data }) => {
   if (!data || data.length === 0) {
-    return <Text style={styles.chartEmptyText}>Sem atendimentos hoje para exibir o gráfico.</Text>;
+    return <Text style={styles.chartEmptyText} accessibilityLabel="Sem atendimentos hoje para exibir o gráfico.">Sem atendimentos hoje para exibir o gráfico.</Text>;
   }
   const maxValue = Math.max(...data.map(item => item.count), 1);
   return (
     <View style={styles.chartSection}>
-      <Text style={styles.sectionTitle}>Atendimentos por Hora</Text>
+      <Text style={styles.sectionTitle} accessibilityRole="header" accessibilityLabel="Atendimentos por Hora">Atendimentos por Hora</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={styles.chartContainer}>
           {data.map((item) => (
-            <View key={item.hora} style={styles.barWrapper}>
+            <View key={item.hora} style={styles.barWrapper} accessible accessibilityLabel={`Hora ${item.hora.split(':')[0]}, ${item.count} atendimentos`}>
               <Text style={styles.barValue}>{item.count}</Text>
               <View style={[styles.bar, { height: `${(item.count / maxValue) * 80 || 0}%` }]} />
               <Text style={styles.barLabel}>{item.hora.split(':')[0]}</Text>
@@ -36,7 +38,8 @@ const BarChart = ({ data }) => {
   );
 };
 
-export default function AdminScreen({ onLogout }) {
+// ===================== TELA PRINCIPAL =====================
+export default function AdminScreen({ onLogout, navigation }) {
   const [fila, setFila] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -51,13 +54,11 @@ export default function AdminScreen({ onLogout }) {
 
   const API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
 
+  // ===================== FUNÇÕES DE DADOS =====================
   const fetchStats = useCallback(async () => {
     setLoadingStats(true);
     try {
-      // ===== CORREÇÃO APLICADA AQUI =====
-      // Adicionamos o '/fila' que estava faltando na URL
       const response = await fetch(`${API_URL}/fila/stats`);
-      
       if (response.ok) {
         const data = await response.json();
         setStats(data);
@@ -74,20 +75,19 @@ export default function AdminScreen({ onLogout }) {
   useEffect(() => {
     fetchStats();
     const statsInterval = setInterval(fetchStats, 60000);
-
     const filaRef = ref(database, 'fila');
     const filaUnsubscribe = onValue(filaRef, (snapshot) => {
       const data = snapshot.val();
       const lista = data ? Object.entries(data).map(([id, dados]) => ({ id, ...dados })).sort((a,b) => a.horaEntrada - b.horaEntrada) : [];
       setFila(lista);
     });
-
     return () => {
       clearInterval(statsInterval);
       filaUnsubscribe();
     };
   }, [fetchStats]);
 
+  // ===================== FUNÇÕES DE AÇÃO =====================
   const handleItemPress = (item) => {
     if (isProcessing) return;
     setSelectedUser(item);
@@ -116,8 +116,24 @@ export default function AdminScreen({ onLogout }) {
 
   const tempoMedioMin = stats.tempoMedioAtendimentoMs > 0 ? Math.ceil(stats.tempoMedioAtendimentoMs / 60000) : 0;
   
+  // ===================== RENDER =====================
   return (
-    <View style={{flex: 1, width: '100%'}}>
+    <View style={styles.container}>
+      <View style={styles.headerCustom}>
+        <TouchableOpacity
+          style={styles.headerLeftButton}
+          onPress={() => navigation && navigation.goBack ? navigation.goBack() : onLogout()}
+          activeOpacity={0.85}
+          accessibilityLabel="Voltar"
+          accessibilityHint="Voltar para a tela anterior"
+        >
+          <Text style={styles.logoutButtonText}>{'<'} Voltar</Text>
+        </TouchableOpacity>
+        <Text style={styles.titleAbsolute} accessibilityRole="header" accessibilityLabel="Área do Administrador">
+          Área do <Text style={styles.brandCustom}>Administrador</Text>
+        </Text>
+        <View style={styles.headerRightSpace} />
+      </View>
       <Modal animationType="fade" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalVisible(false)}>
           <TouchableOpacity activeOpacity={1} style={styles.modalContent}>
@@ -132,12 +148,10 @@ export default function AdminScreen({ onLogout }) {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
-
       <ScrollView
         style={styles.container}
         refreshControl={<RefreshControl refreshing={loadingStats} onRefresh={fetchStats} colors={["#007bff"]} />}
       >
-        <View style={styles.header}><Text style={styles.title}>Dashboard</Text></View>
         <View style={styles.statsGrid}>
           <StatCard title="Na Fila" value={fila.length} icon="👥" />
           <StatCard title="Atendidos Hoje" value={stats.atendidosHoje || 0} icon="✅" />
@@ -149,27 +163,95 @@ export default function AdminScreen({ onLogout }) {
           <View style={styles.peakHourCard}><Text style={styles.statIcon}>😴</Text><Text style={styles.peakHourText}>Ainda não há dados de pico para hoje.</Text></View>
         )}
         <BarChart data={stats.atendimentosPorHora} />
+        <TouchableOpacity style={[styles.botaoAtender, (fila.length === 0 || isProcessing) && styles.botaoDesabilitado]} onPress={atenderProximo} disabled={fila.length === 0 || isProcessing}><Text style={styles.botaoTexto}>Atender Próximo</Text></TouchableOpacity>
         <View style={styles.listContainer}>
           <Text style={styles.sectionTitle}>Fila Atual</Text>
-          <FlatList
-              scrollEnabled={false} data={fila} keyExtractor={(item) => item.id}
+          <View style={{ height: 140 }}>
+            <FlatList
+              data={fila}
+              keyExtractor={(item) => item.id}
               renderItem={({ item, index }) => (
-                <TouchableOpacity onPress={() => handleItemPress(item)} disabled={isProcessing}><View style={styles.itemFila}><Text style={styles.itemText}>{index + 1}. {item.nome}</Text><Text style={styles.itemDate}>às {new Date(Number(item.horaEntrada)).toLocaleTimeString()}</Text></View></TouchableOpacity>
+                <TouchableOpacity onPress={() => handleItemPress(item)} disabled={isProcessing}>
+                  <View style={[styles.itemFilaHorizontal, index === 0 && styles.itemFilaPrimeiro]}>
+                    <Text style={styles.itemText}>{index + 1}. {item.nome}</Text>
+                    <Text style={styles.itemDate}>às {new Date(Number(item.horaEntrada)).toLocaleTimeString()}</Text>
+                  </View>
+                </TouchableOpacity>
               )}
               ListEmptyComponent={<Text style={styles.filaVazia}>A fila está vazia!</Text>}
-          />
+              horizontal
+              showsHorizontalScrollIndicator={true}
+              contentContainerStyle={{ alignItems: 'center', paddingVertical: 10 }}
+            />
+          </View>
         </View>
-        <TouchableOpacity style={[styles.botaoAtender, (fila.length === 0 || isProcessing) && styles.botaoDesabilitado]} onPress={atenderProximo} disabled={fila.length === 0 || isProcessing}><Text style={styles.botaoTexto}>Atender Próximo</Text></TouchableOpacity>
-        <View style={styles.logoutButton}><Button title="Voltar" onPress={onLogout} color="#666" disabled={isProcessing} /></View>
       </ScrollView>
     </View>
   );
 }
 
+// ===================== ESTILOS =====================
 const styles = StyleSheet.create({
   container: { flex: 1, width: '100%', backgroundColor: '#f4f7f9' },
-  header: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20, paddingTop: 50, paddingBottom: 10 },
-  title: { fontSize: 28, fontWeight: 'bold' },
+  headerCustom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    backgroundColor: '#f9fafb',
+    height: 80,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+  },
+  headerLeftButton: {
+    position: 'absolute',
+    left: 20,
+    top: 20,
+    backgroundColor: '#dc3545',
+    paddingVertical: 10,
+    paddingHorizontal: 28,
+    borderRadius: 24,
+    alignItems: 'center',
+    elevation: 2,
+    zIndex: 2,
+  },
+  headerRightSpace: {
+    position: 'absolute',
+    right: 20,
+    top: 20,
+    width: 84,
+    height: 40,
+    opacity: 0,
+    zIndex: 1,
+  },
+  titleAbsolute: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 20,
+    textAlign: 'center',
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1976d2',
+    textShadowColor: '#b0b0b0',
+    textShadowOffset: { width: 1, height: 2 },
+    textShadowRadius: 4,
+    zIndex: 0,
+    paddingHorizontal: 60,
+  },
+  brandCustom: {
+    color: '#222',
+    fontWeight: 'bold',
+    textShadowColor: '#b0b0b0',
+    textShadowOffset: { width: 1, height: 2 },
+    textShadowRadius: 4,
+  },
+  logoutButtonCustom: { backgroundColor: '#dc3545', paddingVertical: 10, paddingHorizontal: 28, borderRadius: 24, alignItems: 'center', elevation: 2 },
+  logoutButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
   statsGrid: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 10, marginTop: 10 },
   statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 10, paddingVertical: 20, paddingHorizontal: 10, marginHorizontal: 5, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3, minHeight: 120, justifyContent: 'center' },
   statIcon: { fontSize: 24, marginBottom: 8 },
@@ -188,6 +270,31 @@ const styles = StyleSheet.create({
   chartEmptyText: { textAlign: 'center', paddingVertical: 40, color: '#6c757d' },
   listContainer: { paddingHorizontal: 15, marginTop: 15, backgroundColor: '#fff', borderRadius: 10, padding: 10, marginHorizontal: 15, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
   itemFila: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  itemFilaHorizontal: {
+    width: 180,
+    height: 110,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginHorizontal: 8,
+    marginVertical: 4,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  itemFilaPrimeiro: {
+    borderColor: '#28a745',
+    borderWidth: 3,
+    shadowColor: '#28a745',
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 6,
+  },
   itemText: { fontSize: 16 },
   itemDate: { fontSize: 12, color: '#888' },
   filaVazia: { textAlign: 'center', paddingVertical: 20, fontSize: 16, color: '#888' },
