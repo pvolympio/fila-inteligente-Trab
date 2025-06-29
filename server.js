@@ -42,7 +42,7 @@ if (!serviceAccount.project_id || !accountSid || !authToken || !twilioPhoneNumbe
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: `https://filla-inteligente-trab-default-rtdb.firebaseio.com/`
+  databaseURL: process.env.FIREBASE_DATABASE_URL
 });
 
 const db = getDatabase();

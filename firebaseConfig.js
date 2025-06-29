@@ -9,10 +9,10 @@ import { getDatabase } from 'firebase/database';
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyBM_EEp_E33Bf2ShUwLtwrHrXlzHk3xBLc",
-  authDomain: "filla-inteligente-trab.firebaseapp.com",
-  databaseURL: "https://filla-inteligente-trab-default-rtdb.firebaseio.com",
-  projectId: "filla-inteligente-trab",
-  storageBucket: "filla-inteligente-trab.firebasestorage.app",
+  authDomain: "fila-inteligente-a7251.firebaseapp.com",
+  databaseURL: "https://fila-inteligente-a7251-default-rtdb.firebaseio.com",
+  projectId: "fila-inteligente-a7251",
+  storageBucket: "fila-inteligente-a7251.appspot.com",
   messagingSenderId: "770758592321",
   appId: "1:770758592321:web:b8df20c086edfbddddc3c0",
   measurementId: "G-FXVH080HPY"
