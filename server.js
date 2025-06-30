@@ -45,9 +45,9 @@ if (fs.existsSync(serviceAccountPath)) {
   };
 }
 
-const databaseURL = process.env.FIREBASE_DATABASE_URL || (serviceAccount.project_id
+const databaseURL = (serviceAccount.project_id
   ? `https://${serviceAccount.project_id}-default-rtdb.firebaseio.com`
-  : undefined);
+  : process.env.FIREBASE_DATABASE_URL);
 
 if (!serviceAccount.project_id || !databaseURL) {
   console.error("ERRO CRÍTICO: Credenciais do Firebase não encontradas. Verifique seu arquivo .env ou firebaseServiceAccountKey.json");
